@@ -91,6 +91,21 @@ jobs:
     
     - name: Build executable
       run: |
+        # 杀死可能占用文件的进程
+        Get-Process | Where-Object {$_.ProcessName -like "*A8*" -or $_.ProcessName -like "*python*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+        
+        # 等待进程完全退出
+        Start-Sleep -Seconds 2
+        
+        # 清理可能锁定的文件
+        if (Test-Path "dist") {
+          try {
+            Remove-Item -Recurse -Force "dist" -ErrorAction Stop
+          } catch {
+            Write-Host "Warning: Could not remove dist directory, trying to continue..."
+          }
+        }
+        
         # 创建图标文件 (如果不存在)
         if (-not (Test-Path "src/assets/icon.ico")) {
           uv run python -c "from PIL import Image; img = Image.new('RGB', (256, 256), (99, 102, 241)); img.save('src/assets/icon.ico', format='ICO'); print('Fallback icon.ico created')"

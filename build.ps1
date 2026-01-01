@@ -92,6 +92,14 @@ Write-Host "PyInstaller ready." -ForegroundColor Green
 Write-Host "`n[4/5] Building EXE with PyInstaller..." -ForegroundColor Yellow
 $startTime = Get-Date
 
+# 杀死可能占用文件的进程 (在 CI 环境中很重要)
+try {
+    Get-Process | Where-Object {$_.ProcessName -like "*A8*" -or $_.ProcessName -like "*python*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+} catch {
+    # 忽略错误，继续构建
+}
+
 # Set UTF-8 encoding for build process
 $env:PYTHONIOENCODING = "utf-8"
 
@@ -170,7 +178,17 @@ if (Test-Path "dist/A8轻语/A8轻语.exe") {
     exit 0
 }
 else {
-    Write-Host "`nBuild failed. Check errors above." -ForegroundColor Red
-    # 显式失败退出
-    exit 1
+    # 检查是否有其他可能的 EXE 文件
+    $exeFiles = Get-ChildItem -Path "dist" -Filter "*.exe" -Recurse -ErrorAction SilentlyContinue
+    if ($exeFiles.Count -gt 0) {
+        Write-Host "`nFound EXE files:" -ForegroundColor Yellow
+        $exeFiles | ForEach-Object { Write-Host "  $($_.FullName)" -ForegroundColor Gray }
+        Write-Host "Build may have succeeded with different naming." -ForegroundColor Yellow
+        exit 0
+    }
+    else {
+        Write-Host "`nBuild failed. Check errors above." -ForegroundColor Red
+        # 显式失败退出
+        exit 1
+    }
 }

@@ -58,20 +58,19 @@ hiddenimports = [
     'src.ui.native_overlay',
     'src.ui.native_overlay.qt_overlay',
     'src.ui.native_overlay.manager',
-    # 修复 jaraco.context 依赖问题 (只包含存在的模块)
+    # 修复 jaraco.context 依赖问题
     'jaraco.context',
     'jaraco.functools',
     'jaraco.text',
-    'backports',
-    'backports.tarfile',
     'importlib_metadata',
     'importlib_resources',
     # 修复 setuptools 相关问题
     'setuptools._vendor.jaraco.text',
     'setuptools._vendor.jaraco.context',
     'setuptools._vendor.importlib_metadata',
-    'setuptools._vendor.backports',
-    'setuptools._vendor.backports.tarfile',
+    # 修复 numpy 重复加载问题 - 只包含必要的模块
+    'numpy._core._multiarray_umath',
+    'numpy._core._multiarray_tests',
 ]
 
 # Manual collection of llama_cpp libraries
@@ -120,6 +119,12 @@ a = Analysis(
         'PySide6.QtTest', 'PySide6.QtXml',
         'IPython', 'jupyter', 'notebook', 'pytest',
         'black', 'flake8', 'mypy', 'pylint',
+        # 排除可能导致冲突的模块
+        'numpy.distutils',
+        'numpy.f2py',
+        'numpy.testing',
+        'numpy.core',  # 排除旧的 core 模块避免冲突
+        'numpy.core.multiarray',  # 排除旧的 multiarray 避免冲突
     ],
     noarchive=False,
     optimize=0, # Must be 0 for numpy (needs docstrings)
