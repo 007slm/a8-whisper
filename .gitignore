@@ -19,6 +19,12 @@ src/assets/icon.ico
 build/
 dist/
 gui_web/dist/
+release/
+release_temp/
+*.zip
+
+# Release packages
+A8轻语-*.zip
 
 # Frontend (Node.js)
 node_modules/

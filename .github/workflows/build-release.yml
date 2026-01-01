@@ -59,32 +59,47 @@ jobs:
         # 创建发布目录
         New-Item -ItemType Directory -Force -Path "release"
         
-        # 复制构建结果
-        Copy-Item -Recurse -Path "dist/A8轻语/*" -Destination "release/"
+        # 复制构建结果 (排除 models 目录)
+        Copy-Item -Path "dist/A8轻语/A8轻语.exe" -Destination "release/"
+        Copy-Item -Recurse -Path "dist/A8轻语/_internal" -Destination "release/"
         
-        # 创建 README
+        # 删除 _internal 中的 models 目录 (减小发布包大小)
+        $internalModels = "release/_internal/models"
+        if (Test-Path $internalModels) {
+          Remove-Item -Recurse -Force $internalModels
+          Write-Host "Removed models from _internal directory"
+        }
+        
+        # 创建使用说明
         @"
-        # A8轻语 $version
+        # A8轻语 $version 使用说明
         
-        ## 使用说明
+        ## 🚀 快速开始
         1. 双击 A8轻语.exe 启动程序
         2. 首次运行会自动下载 AI 模型 (约 3GB)
         3. 使用 Ctrl + Win 快捷键开始语音输入
         
-        ## 系统要求
+        ## 📋 系统要求
         - Windows 10/11 (64-bit)
         - NVIDIA GPU (GTX 1060 或更高)
         - 8GB RAM (推荐 16GB+)
+        - 稳定的网络连接 (首次下载模型)
         
-        ## 项目主页
+        ## 🔗 项目主页
         https://github.com/007slm/a8-whisper
-        "@ | Out-File -FilePath "release/README.txt" -Encoding UTF8
+        
+        ## 🐛 问题反馈
+        https://github.com/007slm/a8-whisper/issues
+        
+        ---
+        A8轻语 - 开源 AI 语音助手，Wispr Flow 的免费替代方案
+        "@ | Out-File -FilePath "release/使用说明.txt" -Encoding UTF8
         
         # 压缩发布包
         Compress-Archive -Path "release/*" -DestinationPath "$releaseName.zip"
         
         # 输出文件信息
-        Get-Item "$releaseName.zip" | Select-Object Name, Length
+        Get-Item "$releaseName.zip" | Select-Object Name, @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB,2)}}
       shell: powershell
       
     - name: Upload Release Asset

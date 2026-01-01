@@ -120,6 +120,17 @@ else {
 }
 Write-Host "NOTE: You must manually copy your models to dist\A8轻语\models" -ForegroundColor Cyan
 
+# Step 6: Clean up for release (remove models from _internal)
+Write-Host "`n[6/6] Cleaning up for release..." -ForegroundColor Yellow
+$internalModels = "dist\A8轻语\_internal\models"
+if (Test-Path $internalModels) {
+    Remove-Item -Recurse -Force $internalModels
+    Write-Host "Removed models from _internal (for release packaging)" -ForegroundColor Green
+}
+else {
+    Write-Host "No models found in _internal directory" -ForegroundColor Gray
+}
+
 if (Test-Path "dist/A8轻语/A8轻语.exe") {
     Write-Host "`n========================================" -ForegroundColor Green
     Write-Host "  BUILD SUCCESSFUL!" -ForegroundColor Green
