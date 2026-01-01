@@ -165,7 +165,12 @@ if (Test-Path "dist/A8轻语/A8轻语.exe") {
     Write-Host "`nTips for faster builds:" -ForegroundColor Yellow
     Write-Host "  - Use '.\build.ps1 -SkipFrontend' if frontend unchanged" -ForegroundColor Gray
     Write-Host "  - Use '.\build.ps1 -Clean' only when dependencies change" -ForegroundColor Gray
+    
+    # 显式成功退出
+    exit 0
 }
 else {
     Write-Host "`nBuild failed. Check errors above." -ForegroundColor Red
+    # 显式失败退出
+    exit 1
 }
