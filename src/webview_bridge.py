@@ -8,6 +8,8 @@ import pyautogui
 import webview
 from src.api_server import emit_status
 # asr/llm lazy imports inside to save startup time
+# BUT AudioRecorder imports numpy, which must be loaded in main thread for frozen app stability
+from src.core.audio import AudioRecorder
 
 CONFIG_FILE = os.path.expanduser("~/.a8qingyu_config.json")
 
@@ -424,7 +426,7 @@ class WebviewBridge:
         self._emit_to_all("app_state", "recording")
         
         if not self._recorder:
-            from src.core.audio import AudioRecorder
+            # AudioRecorder is now imported at top-level to fix numpy threading issue
             self._recorder = AudioRecorder()
             
         self._recorder.start()
