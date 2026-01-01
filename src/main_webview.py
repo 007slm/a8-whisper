@@ -17,6 +17,41 @@ import time
 import atexit
 from PIL import Image, ImageDraw
 
+# LOGGING SETUP FOR RELEASE
+# In frozen mode (EXE), redirect stdout/stderr to a file for debugging
+if getattr(sys, 'frozen', False):
+    log_path = os.path.expanduser("~/.a8qingyu_debug.log")
+    try:
+        # Open in append mode with buffering=1 (line buffered)
+        log_file = open(log_path, 'a', encoding='utf-8', buffering=1)
+        
+        # Write header
+        log_file.write(f"\n\n=== A8 Whisper Session Started: {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+        
+        # Define a Tee-like writer if we want to keep original stdout (though it's None in noconsole)
+        class LogWriter:
+            def __init__(self, stream, file):
+                self.stream = stream
+                self.file = file
+            def write(self, message):
+                try:
+                    self.file.write(message)
+                    self.file.flush() # Ensure it hits disk
+                    if self.stream: self.stream.write(message)
+                except: pass
+            def flush(self):
+                try:
+                    self.file.flush()
+                    if self.stream: self.stream.flush()
+                except: pass
+                
+        sys.stdout = LogWriter(sys.stdout, log_file)
+        sys.stderr = LogWriter(sys.stderr, log_file)
+        print(f"[INFO] Logging to {log_path}")
+    except Exception as e:
+        pass # Fallback to no logging
+
+
 from src import api_server
 
 from src.webview_bridge import WebviewBridge

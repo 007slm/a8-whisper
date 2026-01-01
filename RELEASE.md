@@ -68,7 +68,7 @@ Compress-Archive -Path "dist/A8轻语/*" -DestinationPath "$releaseName.zip"
 1. 下载 `A8轻语-v1.0.0.zip`
 2. 解压到任意目录
 3. 双击 `A8轻语.exe` 启动
-4. 首次运行会自动下载 AI 模型
+4. 首次运行需点击界面上的“下载模型”按钮手动下载 AI 模型
 
 ### 🐛 已知问题
 - 首次启动需要下载约 3GB 的 AI 模型
@@ -88,9 +88,9 @@ Compress-Archive -Path "dist/A8轻语/*" -DestinationPath "$releaseName.zip"
 ## 🔄 版本号规则
 
 使用语义化版本控制 (Semantic Versioning):
-- **主版本号**: 不兼容的 API 修改
-- **次版本号**: 向下兼容的功能性新增
-- **修订号**: 向下兼容的问题修正
+- **主版本号 (Major)**: 不兼容的 API 修改
+- **次版本号 (Minor)**: 向下兼容的功能性新增
+- **修订号 (Patch)**: 向下兼容的问题修正
 
 示例:
 - `v1.0.0` - 首个稳定版本
@@ -98,18 +98,18 @@ Compress-Archive -Path "dist/A8轻语/*" -DestinationPath "$releaseName.zip"
 - `v1.1.1` - 修复 bug
 - `v2.0.0` - 重大更新
 
-## 📝 Release Checklist
+## 📝 发布检查清单 (Release Checklist)
 
-发布前检查清单:
+发布前请检查以下项目:
 
 - [ ] 代码已合并到 main 分支
-- [ ] 所有测试通过
-- [ ] 更新了版本号
+- [ ] 所有自动化测试通过
+- [ ] 版本号已更新 (VERSION & pyproject.toml)
 - [ ] 构建成功且 EXE 可正常运行
-- [ ] 准备了 Release Notes
+- [ ] 已准备 Release Notes (更新日志)
 - [ ] 文件大小合理 (< 500MB)
-- [ ] 包含必要的依赖文件
-- [ ] 测试了在干净系统上的安装
+- [ ] 包含必要的依赖文件 (如 jaraco/backports)
+- [ ] 在干净的 Windows 系统上测试了安装和运行
 
 ## 🚀 自动化构建 (未来)
 
