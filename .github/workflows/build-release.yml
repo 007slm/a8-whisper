@@ -100,9 +100,28 @@ jobs:
         # 创建发布目录
         New-Item -ItemType Directory -Force -Path "release"
         
-        # 复制构建结果 (排除 models 目录)
-        Copy-Item -Path "dist/A8轻语/A8轻语.exe" -Destination "release/"
-        Copy-Item -Recurse -Path "dist/A8轻语/_internal" -Destination "release/"
+        # 检查构建结果目录
+        Write-Host "Checking build output directory..."
+        Get-ChildItem -Path "dist" -Recurse | Select-Object FullName
+        
+        # 使用通配符复制文件，避免中文路径编码问题
+        $exeFiles = Get-ChildItem -Path "dist" -Filter "*.exe" -Recurse
+        if ($exeFiles.Count -eq 0) {
+          Write-Host "ERROR: No EXE file found in dist directory"
+          exit 1
+        }
+        
+        $exeFile = $exeFiles[0]
+        $internalDir = Join-Path $exeFile.Directory.FullName "_internal"
+        
+        Write-Host "Found EXE: $($exeFile.FullName)"
+        Write-Host "Internal dir: $internalDir"
+        
+        # 复制构建结果
+        Copy-Item -Path $exeFile.FullName -Destination "release/"
+        if (Test-Path $internalDir) {
+          Copy-Item -Recurse -Path $internalDir -Destination "release/"
+        }
         
         # 删除 _internal 中的 models 目录内容 (但保留目录)
         $internalModels = "release/_internal/models"
@@ -114,12 +133,19 @@ jobs:
           Write-Host "Created empty models directory in _internal"
         }
         
+        # 重命名 EXE 文件为英文名称 (避免下载时的编码问题)
+        $releaseExe = Get-ChildItem -Path "release" -Filter "*.exe"
+        if ($releaseExe) {
+          Rename-Item -Path $releaseExe.FullName -NewName "A8Whisper.exe"
+          Write-Host "Renamed EXE to A8Whisper.exe"
+        }
+        
         # 创建使用说明
         @"
         # A8轻语 $version 使用说明
         
         ## 🚀 快速开始
-        1. 双击 A8轻语.exe 启动程序
+        1. 双击 A8Whisper.exe 启动程序
         2. 首次运行会自动下载 AI 模型 (约 3GB)
         3. 使用 Ctrl + Win 快捷键开始语音输入
         
