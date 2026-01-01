@@ -16,7 +16,20 @@ $ErrorActionPreference = "Stop"
 if (-not $SkipFrontend) {
     Write-Host "`n[1/5] Building Frontend..." -ForegroundColor Yellow
     Push-Location gui_web
-    cmd /c "pnpm install --prefer-offline && pnpm build"
+    
+    # Auto-detect package manager
+    if (Get-Command pnpm -ErrorAction SilentlyContinue) {
+        Write-Host "Using pnpm..." -ForegroundColor Gray
+        cmd /c "pnpm install --prefer-offline && pnpm build"
+    } elseif (Get-Command npm -ErrorAction SilentlyContinue) {
+        Write-Host "Using npm..." -ForegroundColor Gray
+        cmd /c "npm install && npm run build"
+    } else {
+        Write-Host "ERROR: No package manager found (npm or pnpm required)!" -ForegroundColor Red
+        Pop-Location
+        exit 1
+    }
+    
     if ($LASTEXITCODE -ne 0) {
         Write-Host "ERROR: Frontend build failed!" -ForegroundColor Red
         Pop-Location

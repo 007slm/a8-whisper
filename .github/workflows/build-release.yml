@@ -47,8 +47,8 @@ jobs:
           uv run python -c "from PIL import Image; img = Image.new('RGB', (256, 256), (99, 102, 241)); img.save('src/assets/icon.ico', format='ICO'); print('Fallback icon.ico created')"
         }
         
-        # 构建 EXE
-        .\build.ps1 -Clean
+        # 构建 EXE (跳过前端构建，因为已经单独构建了)
+        .\build.ps1 -SkipFrontend -Clean
       shell: powershell
       
     - name: Create release package
