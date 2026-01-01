@@ -6,6 +6,11 @@ on:
       - 'v*'  # 当推送 v* 标签时触发
   workflow_dispatch:  # 允许手动触发
 
+permissions:
+  contents: write  # 需要写权限来创建 Release
+  packages: write  # 可选，如果需要发布包
+  actions: read    # 读取 Actions 权限
+
 jobs:
   build:
     runs-on: windows-latest
