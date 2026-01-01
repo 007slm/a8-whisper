@@ -249,7 +249,9 @@ def main():
     atexit.register(cleanup_processes)
 
     # Start Pywebview Loop with Init Callback
-    webview.start(func=init_app, debug=True)
+    # Enable debug mode only in development
+    debug_mode = os.environ.get("A8_DEV_MODE") == "1" or not getattr(sys, 'frozen', False)
+    webview.start(func=init_app, debug=debug_mode)
     
     if server:
         server.stop()
