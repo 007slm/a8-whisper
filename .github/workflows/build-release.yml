@@ -18,28 +18,69 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
+        cache: 'pip'
         
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'gui_web/package-lock.json'
         
     - name: Install uv
       run: pip install uv
       
+    - name: Cache uv dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          .venv
+          ~/.cache/uv
+          %LOCALAPPDATA%\uv\cache
+        key: ${{ runner.os }}-uv-python${{ matrix.python-version || '3.11' }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-python${{ matrix.python-version || '3.11' }}-
+          ${{ runner.os }}-uv-
+      
     - name: Install Python dependencies
       run: uv sync
+      
+    - name: Cache frontend dependencies
+      uses: actions/cache@v4
+      with:
+        path: gui_web/node_modules
+        key: ${{ runner.os }}-npm-${{ hashFiles('gui_web/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-
       
     - name: Install frontend dependencies
       run: |
         cd gui_web
-        npm install
+        npm ci --prefer-offline
         
     - name: Build frontend
       run: |
         cd gui_web
         npm run build
         
+    - name: Cache frontend build
+      uses: actions/cache@v4
+      with:
+        path: gui_web/dist
+        key: ${{ runner.os }}-frontend-${{ hashFiles('gui_web/src/**/*', 'gui_web/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-frontend-
+        
+    - name: Cache PyInstaller build
+      uses: actions/cache@v4
+      with:
+        path: |
+          build
+          dist
+        key: ${{ runner.os }}-pyinstaller-${{ hashFiles('src/**/*.py', 'a8qingyu.spec', 'pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pyinstaller-
+    
     - name: Build executable
       run: |
         # 创建图标文件 (如果不存在)
