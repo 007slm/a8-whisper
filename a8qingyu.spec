@@ -44,7 +44,17 @@ hiddenimports = [
     'threading',
     'src.ui.native_overlay',
     'src.ui.native_overlay.qt_overlay',
-    'src.ui.native_overlay.manager'
+    'src.ui.native_overlay.manager',
+    # 修复 jaraco.context 依赖问题 (只包含存在的模块)
+    'jaraco.context',
+    'jaraco.functools',
+    'jaraco.text',
+    'importlib_metadata',
+    'importlib_resources',
+    # 修复 setuptools 相关问题
+    'setuptools._vendor.jaraco.text',
+    'setuptools._vendor.jaraco.context',
+    'setuptools._vendor.importlib_metadata',
 ]
 
 # Manual collection of llama_cpp libraries
