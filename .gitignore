@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 .venv/
 venv/
-*.spec
+# *.spec  # 注释掉，我们需要 a8qingyu.spec
 
 # VS Code / IDE
 .vscode/
