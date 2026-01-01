@@ -9,18 +9,30 @@ datas = [
 ]
 
 # Fix: setuptools/jaraco.text needs Lorem ipsum.txt
-# Using absolute path to ensure certainty
-jaraco_file = r'e:\a8-turbo\whisper\.venv\Lib\site-packages\setuptools\_vendor\jaraco\text\Lorem ipsum.txt'
-
-if os.path.exists(jaraco_file):
-    print(f"SUCCESS: Found jaraco text resource at: {jaraco_file}")
-    # Add to multiple locations to cover PyInstaller _internal structure changes
-    datas.append((jaraco_file, 'setuptools/_vendor/jaraco/text'))
-    datas.append((jaraco_file, '_internal/setuptools/_vendor/jaraco/text'))
-else:
-    print(f"WARNING: Could not find jaraco file at {jaraco_file}. Trying relative search...")
-    # Fallback usually not needed if verify succeeds
-    pass
+# Use dynamic path detection instead of hardcoded path
+jaraco_files = []
+try:
+    # Try multiple possible locations
+    possible_paths = [
+        os.path.join('.venv', 'Lib', 'site-packages', 'setuptools', '_vendor', 'jaraco', 'text', 'Lorem ipsum.txt'),
+        os.path.join('.venv', 'lib', 'python3.11', 'site-packages', 'setuptools', '_vendor', 'jaraco', 'text', 'Lorem ipsum.txt'),
+        # Add more paths as needed
+    ]
+    
+    for jaraco_path in possible_paths:
+        if os.path.exists(jaraco_path):
+            print(f"SUCCESS: Found jaraco text resource at: {jaraco_path}")
+            # Add to multiple locations to cover PyInstaller _internal structure changes
+            datas.append((jaraco_path, 'setuptools/_vendor/jaraco/text'))
+            datas.append((jaraco_path, '_internal/setuptools/_vendor/jaraco/text'))
+            jaraco_files.append(jaraco_path)
+            break
+    
+    if not jaraco_files:
+        print("WARNING: Could not find jaraco Lorem ipsum.txt file. This may cause runtime issues.")
+        
+except Exception as e:
+    print(f"WARNING: Error searching for jaraco files: {e}")
 
 # Hidden imports for system components
 hiddenimports = [
@@ -38,18 +50,33 @@ hiddenimports = [
 # Manual collection of llama_cpp libraries
 from PyInstaller.utils.hooks import get_package_paths
 import os
+
+# Try to collect torch zlibwapi.dll if available (optional)
+torch_binaries = []
 try:
-    datas.append(('.venv/Lib/site-packages/llama_cpp/lib', 'llama_cpp/lib'))
-except:
-    pass
+    torch_lib_path = os.path.join('.venv', 'Lib', 'site-packages', 'torch', 'lib', 'zlibwapi.dll')
+    if os.path.exists(torch_lib_path):
+        torch_binaries.append((torch_lib_path, '.'))
+        print(f"Found torch zlibwapi.dll at: {torch_lib_path}")
+    else:
+        print("torch zlibwapi.dll not found, skipping...")
+except Exception as e:
+    print(f"Could not locate torch binaries: {e}")
+
+# Try to collect llama_cpp libraries if available (optional)
+try:
+    llama_cpp_lib_path = os.path.join('.venv', 'Lib', 'site-packages', 'llama_cpp', 'lib')
+    if os.path.exists(llama_cpp_lib_path):
+        datas.append((llama_cpp_lib_path, 'llama_cpp/lib'))
+        print(f"Found llama_cpp lib at: {llama_cpp_lib_path}")
+except Exception as e:
+    print(f"Could not locate llama_cpp libraries: {e}")
 
 a = Analysis(
     ['src\\\\main_webview.py'],
     pathex=[],
-    # Manually collect zlibwapi.dll from torch (needed for cudnn)
-    binaries=[
-       ('.venv/Lib/site-packages/torch/lib/zlibwapi.dll', '.') 
-    ],
+    # Use dynamic torch binaries (may be empty if torch not available)
+    binaries=torch_binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
