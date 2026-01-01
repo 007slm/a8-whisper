@@ -34,6 +34,19 @@ try:
 except Exception as e:
     print(f"WARNING: Error searching for jaraco files: {e}")
 
+# Fix: Add setuptools/_vendor to pathex to support 'backports' module used by jaraco
+extra_pathex = []
+try:
+    vendor_path = os.path.join('.venv', 'Lib', 'site-packages', 'setuptools', '_vendor')
+    if os.path.exists(vendor_path):
+        print(f"Adding vendor path to pathex: {vendor_path}")
+        extra_pathex.append(os.path.abspath(vendor_path))
+    else:
+        # Fallback for other environments or global install
+        print("WARNING: setuptools/_vendor not found, checking standard paths...")
+except Exception as e:
+    print(f"Error checking vendor path: {e}")
+
 # Hidden imports for system components
 hiddenimports = [
     'pystray',
@@ -49,12 +62,16 @@ hiddenimports = [
     'jaraco.context',
     'jaraco.functools',
     'jaraco.text',
+    'backports',
+    'backports.tarfile',
     'importlib_metadata',
     'importlib_resources',
     # 修复 setuptools 相关问题
     'setuptools._vendor.jaraco.text',
     'setuptools._vendor.jaraco.context',
     'setuptools._vendor.importlib_metadata',
+    'setuptools._vendor.backports',
+    'setuptools._vendor.backports.tarfile',
 ]
 
 # Manual collection of llama_cpp libraries
@@ -84,7 +101,7 @@ except Exception as e:
 
 a = Analysis(
     ['src/main_webview.py'],
-    pathex=[],
+    pathex=extra_pathex,
     # Use dynamic torch binaries (may be empty if torch not available)
     binaries=torch_binaries,
     datas=datas,
