@@ -4,6 +4,8 @@ import webview
 import threading
 import sys
 import os
+# Fix: Import numpy early to prevent "cannot load module more than once" error in frozen app
+import numpy as np
 
 # Set console encoding for Windows
 if sys.platform == "win32":
