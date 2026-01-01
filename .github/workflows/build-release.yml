@@ -143,30 +143,33 @@ jobs:
           Write-Host "Renamed EXE to A8Whisper.exe"
         }
         
-        # 创建使用说明
-        @"
-        # A8轻语 $version 使用说明
+        # 创建使用说明 (使用英文文件名避免编码问题)
+        $readmeContent = @"
+# A8轻语 $version 使用说明
+
+## 🚀 快速开始
+1. 双击 A8Whisper.exe 启动程序
+2. 首次运行会自动下载 AI 模型 (约 3GB)
+3. 使用 Ctrl + Win 快捷键开始语音输入
+
+## 📋 系统要求
+- Windows 10/11 (64-bit)
+- NVIDIA GPU (GTX 1060 或更高)
+- 8GB RAM (推荐 16GB+)
+- 稳定的网络连接 (首次下载模型)
+
+## 🔗 项目主页
+https://github.com/007slm/a8-whisper
+
+## 🐛 问题反馈
+https://github.com/007slm/a8-whisper/issues
+
+---
+A8轻语 - 开源 AI 语音助手，Wispr Flow 的免费替代方案
+"@
         
-        ## 🚀 快速开始
-        1. 双击 A8Whisper.exe 启动程序
-        2. 首次运行会自动下载 AI 模型 (约 3GB)
-        3. 使用 Ctrl + Win 快捷键开始语音输入
-        
-        ## 📋 系统要求
-        - Windows 10/11 (64-bit)
-        - NVIDIA GPU (GTX 1060 或更高)
-        - 8GB RAM (推荐 16GB+)
-        - 稳定的网络连接 (首次下载模型)
-        
-        ## 🔗 项目主页
-        https://github.com/007slm/a8-whisper
-        
-        ## 🐛 问题反馈
-        https://github.com/007slm/a8-whisper/issues
-        
-        ---
-        A8轻语 - 开源 AI 语音助手，Wispr Flow 的免费替代方案
-        "@ | Out-File -FilePath "release/使用说明.txt" -Encoding UTF8
+        # 使用英文文件名和正确的编码方式
+        [System.IO.File]::WriteAllText("release/README.txt", $readmeContent, [System.Text.Encoding]::UTF8)
         
         # 压缩发布包
         Compress-Archive -Path "release/*" -DestinationPath "$releaseName.zip"
