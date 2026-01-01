@@ -73,7 +73,7 @@ except Exception as e:
     print(f"Could not locate llama_cpp libraries: {e}")
 
 a = Analysis(
-    ['src\\\\main_webview.py'],
+    ['src/main_webview.py'],
     pathex=[],
     # Use dynamic torch binaries (may be empty if torch not available)
     binaries=torch_binaries,
