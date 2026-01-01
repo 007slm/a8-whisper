@@ -1,6 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_all, collect_submodules
 import os
+
+# 完整收集 numpy 模块以避免重复加载问题
+numpy_datas, numpy_binaries, numpy_hiddenimports = collect_all('numpy')
+print(f"Collected {len(numpy_hiddenimports)} numpy hidden imports")
 
 # Collect compiled frontend and assets
 datas = [
@@ -68,10 +72,10 @@ hiddenimports = [
     'setuptools._vendor.jaraco.text',
     'setuptools._vendor.jaraco.context',
     'setuptools._vendor.importlib_metadata',
-    # 修复 numpy 重复加载问题 - 只包含必要的模块
-    'numpy._core._multiarray_umath',
-    'numpy._core._multiarray_tests',
 ]
+
+# 合并 numpy 的 hidden imports
+hiddenimports.extend(numpy_hiddenimports)
 
 # Manual collection of llama_cpp libraries
 from PyInstaller.utils.hooks import get_package_paths
@@ -102,8 +106,8 @@ a = Analysis(
     ['src/main_webview.py'],
     pathex=extra_pathex,
     # Use dynamic torch binaries (may be empty if torch not available)
-    binaries=torch_binaries,
-    datas=datas,
+    binaries=torch_binaries + numpy_binaries,
+    datas=datas + numpy_datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
@@ -123,8 +127,6 @@ a = Analysis(
         'numpy.distutils',
         'numpy.f2py',
         'numpy.testing',
-        'numpy.core',  # 排除旧的 core 模块避免冲突
-        'numpy.core.multiarray',  # 排除旧的 multiarray 避免冲突
     ],
     noarchive=False,
     optimize=0, # Must be 0 for numpy (needs docstrings)
