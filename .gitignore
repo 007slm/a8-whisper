@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.spec
+
+# VS Code / IDE
+.vscode/
+.idea/
+
+# A8Wisper Specific
+models/
+*.log
+src/assets/icon.ico
+
+# Build Artifacts
+build/
+dist/
+gui_web/dist/
+
+# Frontend (Node.js)
+node_modules/
+gui_web/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# System
+.DS_Store
+Thumbs.db
