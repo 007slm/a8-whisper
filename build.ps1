@@ -137,11 +137,14 @@ Write-Host "NOTE: You must manually copy your models to dist\A8轻语\models" -F
 Write-Host "`n[6/6] Cleaning up for release..." -ForegroundColor Yellow
 $internalModels = "dist\A8轻语\_internal\models"
 if (Test-Path $internalModels) {
-    Remove-Item -Recurse -Force $internalModels
-    Write-Host "Removed models from _internal (for release packaging)" -ForegroundColor Green
+    # 清空 models 目录内容但保留目录本身
+    Get-ChildItem -Path $internalModels -Recurse | Remove-Item -Force -Recurse
+    Write-Host "Cleared models content from _internal (keeping empty directory for release)" -ForegroundColor Green
 }
 else {
-    Write-Host "No models found in _internal directory" -ForegroundColor Gray
+    # 创建空的 models 目录
+    New-Item -ItemType Directory -Force -Path $internalModels | Out-Null
+    Write-Host "Created empty models directory in _internal" -ForegroundColor Green
 }
 
 if (Test-Path "dist/A8轻语/A8轻语.exe") {

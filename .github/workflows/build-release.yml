@@ -104,11 +104,14 @@ jobs:
         Copy-Item -Path "dist/A8轻语/A8轻语.exe" -Destination "release/"
         Copy-Item -Recurse -Path "dist/A8轻语/_internal" -Destination "release/"
         
-        # 删除 _internal 中的 models 目录 (减小发布包大小)
+        # 删除 _internal 中的 models 目录内容 (但保留目录)
         $internalModels = "release/_internal/models"
         if (Test-Path $internalModels) {
-          Remove-Item -Recurse -Force $internalModels
-          Write-Host "Removed models from _internal directory"
+          Get-ChildItem -Path $internalModels -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+          Write-Host "Cleared models content from _internal directory (keeping empty directory)"
+        } else {
+          New-Item -ItemType Directory -Force -Path $internalModels | Out-Null
+          Write-Host "Created empty models directory in _internal"
         }
         
         # 创建使用说明
