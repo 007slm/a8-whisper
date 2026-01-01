@@ -1,0 +1,125 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # 当推送 v* 标签时触发
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install uv
+      run: pip install uv
+      
+    - name: Install Python dependencies
+      run: uv sync
+      
+    - name: Install frontend dependencies
+      run: |
+        cd gui_web
+        npm install
+        
+    - name: Build frontend
+      run: |
+        cd gui_web
+        npm run build
+        
+    - name: Build executable
+      run: |
+        # 创建图标文件 (如果不存在)
+        if (-not (Test-Path "src/assets/icon.ico")) {
+          uv run python -c "from PIL import Image; img = Image.new('RGB', (256, 256), (99, 102, 241)); img.save('src/assets/icon.ico', format='ICO'); print('Fallback icon.ico created')"
+        }
+        
+        # 构建 EXE
+        .\build.ps1 -Clean
+      shell: powershell
+      
+    - name: Create release package
+      run: |
+        $version = "${{ github.ref_name }}"
+        $releaseName = "A8轻语-$version"
+        
+        # 创建发布目录
+        New-Item -ItemType Directory -Force -Path "release"
+        
+        # 复制构建结果
+        Copy-Item -Recurse -Path "dist/A8轻语/*" -Destination "release/"
+        
+        # 创建 README
+        @"
+        # A8轻语 $version
+        
+        ## 使用说明
+        1. 双击 A8轻语.exe 启动程序
+        2. 首次运行会自动下载 AI 模型 (约 3GB)
+        3. 使用 Ctrl + Win 快捷键开始语音输入
+        
+        ## 系统要求
+        - Windows 10/11 (64-bit)
+        - NVIDIA GPU (GTX 1060 或更高)
+        - 8GB RAM (推荐 16GB+)
+        
+        ## 项目主页
+        https://github.com/007slm/a8-whisper
+        "@ | Out-File -FilePath "release/README.txt" -Encoding UTF8
+        
+        # 压缩发布包
+        Compress-Archive -Path "release/*" -DestinationPath "$releaseName.zip"
+        
+        # 输出文件信息
+        Get-Item "$releaseName.zip" | Select-Object Name, Length
+      shell: powershell
+      
+    - name: Upload Release Asset
+      uses: actions/upload-artifact@v4
+      with:
+        name: A8轻语-${{ github.ref_name }}
+        path: A8轻语-${{ github.ref_name }}.zip
+        
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: A8轻语-${{ github.ref_name }}.zip
+        name: A8轻语 ${{ github.ref_name }}
+        body: |
+          ## 🎉 A8轻语 ${{ github.ref_name }}
+          
+          ### 📥 下载说明
+          1. 下载 `A8轻语-${{ github.ref_name }}.zip`
+          2. 解压到任意目录
+          3. 双击 `A8轻语.exe` 启动
+          4. 首次运行会自动下载 AI 模型
+          
+          ### 📋 系统要求
+          - Windows 10/11 (64-bit)
+          - NVIDIA GPU (GTX 1060 或更高)
+          - 8GB RAM (推荐 16GB+)
+          - 10GB+ 可用存储空间
+          
+          ### 🔗 项目主页
+          https://github.com/007slm/a8-whisper
+          
+          ---
+          **完整更新日志**: https://github.com/007slm/a8-whisper/releases
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

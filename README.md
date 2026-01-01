@@ -95,14 +95,30 @@ A8轻语是一个运行在 Windows 上的 AI 语音助手，旨在提供类似 W
 
 ## 🚀 快速开始
 
-### 1. 克隆项目
-```bash
+### 方式一：下载预编译版本 (推荐) 📦
+
+**最简单的使用方式 - 无需安装 Python 环境**
+
+1. 前往 [Releases 页面](https://github.com/007slm/a8-whisper/releases)
+2. 下载最新版本的 `A8轻语-v*.*.*.zip`
+3. 解压到任意目录
+4. 双击 `A8轻语.exe` 启动程序
+5. 首次运行会自动下载 AI 模型
+
+> **系统要求**: Windows 10/11 + NVIDIA GPU (支持 CUDA)
+
+### 方式二：从源码构建 🛠️
+
+**适合开发者或需要自定义功能的用户**
+
+#### 1. 克隆项目
+```powershell
 git clone https://github.com/007slm/a8-whisper.git
 cd a8-whisper
 ```
 
-### 2. 安装 Python 依赖
-```bash
+#### 2. 安装 Python 依赖
+```powershell
 # 安装 uv (推荐的包管理器)
 pip install uv
 
@@ -110,19 +126,18 @@ pip install uv
 uv sync
 ```
 
-### 3. 安装前端依赖
-```bash
+#### 3. 安装前端依赖
+```powershell
 cd gui_web
 npm install
 # 或使用 pnpm
 pnpm install
+cd ..
 ```
 
-### 4. 启动应用
-
-#### 开发模式 (推荐)
+#### 4. 一键启动 🎯
 ```powershell
-# 使用 PowerShell 脚本启动 (自动处理前端构建和热重载)
+# 使用 PowerShell 脚本启动 (推荐)
 .\run_webview.ps1
 ```
 
@@ -147,9 +162,11 @@ pnpm install
 ### 5. 首次配置
 1. 应用启动后会显示在系统托盘
 2. 右键托盘图标选择 "显示设置"
-3. 在设置界面中下载所需的 ASR 模型
+3. 在设置界面中下载所需的 ASR 模型 (首次使用约需下载 3GB)
 4. 配置快捷键和其他选项
 5. 开始使用！
+
+> **💡 提示**: 预编译版本已包含所有运行时依赖，首次启动时会自动下载 AI 模型文件
 
 ## 📖 使用说明
 
@@ -250,6 +267,15 @@ cd ..
 ```
 
 构建完成后，可执行文件位于 `dist/A8轻语/A8轻语.exe`
+
+### 创建 Release
+```powershell
+# 打包发布版本
+$version = "v1.0.0"
+Compress-Archive -Path "dist/A8轻语/*" -DestinationPath "A8轻语-$version.zip"
+```
+
+详细的发布流程请参考 [RELEASE.md](RELEASE.md)
 
 ### 贡献指南
 1. Fork 本项目
