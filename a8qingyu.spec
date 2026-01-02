@@ -6,6 +6,13 @@ import os
 numpy_datas, numpy_binaries, numpy_hiddenimports = collect_all('numpy')
 print(f"Collected {len(numpy_hiddenimports)} numpy hidden imports")
 
+# Fix: Collect ctranslate2 and faster_whisper to ensure DLLs and dependencies are included
+ct2_datas, ct2_binaries, ct2_hiddenimports = collect_all('ctranslate2')
+print(f"Collected {len(ct2_hiddenimports)} ctranslate2 hidden imports")
+
+fw_datas, fw_binaries, fw_hiddenimports = collect_all('faster_whisper')
+print(f"Collected {len(fw_hiddenimports)} faster_whisper hidden imports")
+
 # Collect compiled frontend and assets
 datas = [
     ('src/assets', 'src/assets'),
@@ -74,8 +81,10 @@ hiddenimports = [
     'setuptools._vendor.importlib_metadata',
 ]
 
-# 合并 numpy 的 hidden imports
+# 合并 hidden imports
 hiddenimports.extend(numpy_hiddenimports)
+hiddenimports.extend(ct2_hiddenimports)
+hiddenimports.extend(fw_hiddenimports)
 
 # Manual collection of llama_cpp libraries
 from PyInstaller.utils.hooks import get_package_paths
@@ -106,8 +115,9 @@ a = Analysis(
     ['src/main_webview.py'],
     pathex=extra_pathex,
     # Use dynamic torch binaries (may be empty if torch not available)
-    binaries=torch_binaries + numpy_binaries,
-    datas=datas + numpy_datas,
+    # Use dynamic torch binaries (may be empty if torch not available)
+    binaries=torch_binaries + numpy_binaries + ct2_binaries + fw_binaries,
+    datas=datas + numpy_datas + ct2_datas + fw_datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
