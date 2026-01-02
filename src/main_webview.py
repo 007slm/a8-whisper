@@ -188,6 +188,27 @@ def create_tray_icon(main_window):
     icon = pystray.Icon("A8 Whisper", image, "A8 Whisper", menu)
     return icon
 
+def get_resource_path(relative_path):
+    """
+    Get absolute path to resource, works for dev and for PyInstaller/Nuitka.
+    """
+    # Robust frozen detection for Nuitka
+    is_frozen = getattr(sys, 'frozen', False) or "__compiled__" in globals()
+    
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller (onefile/onedir)
+        base_path = sys._MEIPASS
+    elif is_frozen:
+        # Nuitka Standalone
+        # Resources are usually relative to the executable (sys.executable)
+        base_path = os.path.dirname(sys.executable)
+    else:
+         # Development mode
+         base_path = os.path.abspath(".")
+             
+    full_path = os.path.join(base_path, relative_path)
+    return full_path
+
 def main():
     # 0. Check for Overlay Mode (Subprocess)
     if "--overlay" in sys.argv:
@@ -198,18 +219,26 @@ def main():
     global overlay_process
     api = WebviewBridge()
     
-    # 1. Check for Production Build (dist/index.html)
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    # 1. Determine Environment
+    is_frozen = getattr(sys, 'frozen', False) or "__compiled__" in globals()
     
-    # In packaged mode, check for gui_web/dist in the bundle
-    if getattr(sys, 'frozen', False):
-        # Running as packaged executable
-        bundle_dir = sys._MEIPASS
-        dist_dir = os.path.join(bundle_dir, 'gui_web', 'dist')
+    # Fallback: If running as a .exe that isn't python.exe, assume frozen (Nuitka Standalone often has this issue)
+    if not is_frozen and sys.platform == "win32" and sys.executable.lower().endswith(".exe"):
+        exe_name = os.path.basename(sys.executable).lower()
+        if "python" not in exe_name:
+            # print(f"[WARN] Nuitka detection fallback: Running as {exe_name}, assuming Frozen/Packaged mode.")
+            is_frozen = True
+
+    if is_frozen:
+        # Running as packaged executable (Nuitka/PyInstaller)
+        # Use get_resource_path to find the bundled gui_web/dist
+        dist_dir = get_resource_path(os.path.join('gui_web', 'dist'))
         index_html = os.path.join(dist_dir, 'index.html')
         is_production = True
+        print(f"[INFO] Running in Packaged Mode")
     else:
         # Running as script
+        base_dir = os.path.dirname(os.path.abspath(__file__))
         dist_dir = os.path.join(base_dir, '..', 'gui_web', 'dist')
         index_html = os.path.join(dist_dir, 'index.html')
         is_production = os.path.exists(index_html) and not os.environ.get("A8_DEV_MODE")
@@ -263,10 +292,11 @@ def main():
         threading.Thread(target=start_server_wrapper, daemon=True).start()
         
         # 3. Launch Overlay Process
-        if getattr(sys, 'frozen', False):
+        if is_frozen:
             overlay_cmd = [sys.executable, "--overlay"]
             print(f"[INFO] Launching Overlay (Frozen): {overlay_cmd}")
         else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
             overlay_script = os.path.join(base_dir, 'run_overlay.py')
             overlay_cmd = [sys.executable, overlay_script]
             print(f"[INFO] Launching Overlay (Script): {overlay_script}")

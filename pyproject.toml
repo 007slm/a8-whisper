@@ -1,6 +1,6 @@
 [project]
 name = "a8wisper"
-version = "1.0.7"
+version = "1.0.9"
 description = "A8Wisper - Windows AI Voice Assistant (Hybrid UI)"
 readme = "README.md"
 requires-python = ">=3.10"
