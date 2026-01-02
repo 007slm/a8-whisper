@@ -81,6 +81,14 @@ class AudioRecorder:
             # RMS amplitude
             # Check for empty chunk to avoid warning
             if len(last_chunk) > 0:
-                rms = np.sqrt(np.mean(last_chunk**2))
-                return float(rms)
+                try:
+                    # Convert to float to avoid overflow with int16
+                    chunk_float = last_chunk.astype(np.float64)
+                    mean_sq = np.mean(chunk_float**2)
+                    # Ensure non-negative before sqrt
+                    if mean_sq > 0:
+                        rms = np.sqrt(mean_sq)
+                        return float(rms)
+                except Exception:
+                    pass
         return 0.0

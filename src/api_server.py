@@ -87,13 +87,20 @@ async def broadcast(message):
         message = json.dumps(message)
     # Filter out closed clients
     to_remove = set()
-    for client in CLIENTS:
+    for client in list(CLIENTS):  # Use list() to avoid modification during iteration
         try:
             await client.send(message)
         except websockets.exceptions.ConnectionClosed:
             to_remove.add(client)
+        except Exception as e:
+            # Handle any other errors gracefully
+            print(f"Broadcast error: {e}")
+            to_remove.add(client)
     for client in to_remove:
-        CLIENTS.remove(client)
+        try:
+            CLIENTS.discard(client)  # Use discard to avoid KeyError
+        except:
+            pass
 
 async def handler(websocket):
     CLIENTS.add(websocket)
@@ -136,10 +143,16 @@ async def handler(websocket):
                 print(f"Invalid JSON: {message}")
             except Exception as e:
                 print(f"Error handling message: {e}")
+                import traceback
+                traceback.print_exc()
     except websockets.exceptions.ConnectionClosed:
         pass
+    except Exception as e:
+        print(f"WebSocket handler error: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
-        CLIENTS.remove(websocket)
+        CLIENTS.discard(websocket)  # Use discard to avoid KeyError
         print("Client disconnected")
 
 def start_server(host="127.0.0.1", port=9000):
@@ -194,6 +207,10 @@ def start_server_wrapper():
         asyncio.run(serve())
     except KeyboardInterrupt:
         pass
+    except Exception as e:
+        print(f"WebSocket server error: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 # Robust Messaging
@@ -205,11 +222,12 @@ def emit_status(type_str, data):
     global SERVER_LOOP
     if SERVER_LOOP and SERVER_LOOP.is_running():
         try:
-             asyncio.run_coroutine_threadsafe(broadcast({"type": type_str, "data": data}), SERVER_LOOP)
+            asyncio.run_coroutine_threadsafe(broadcast({"type": type_str, "data": data}), SERVER_LOOP)
         except Exception as e:
             print(f"Emit failed: {e}")
     else:
-        print(f"Warning: Event loop not ready. Dropped message: {type_str}")
+        # Don't print warning for every dropped message - too noisy
+        pass
 
 # Re-implement download workers using emit_status
 def download_worker(model_size):
