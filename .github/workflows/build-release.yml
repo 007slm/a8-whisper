@@ -3,13 +3,11 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'  # 当推送 v* 标签时触发
-  workflow_dispatch:  # 允许手动触发
+      - 'v*'
+  workflow_dispatch:
 
 permissions:
-  contents: write  # 需要写权限来创建 Release
-  packages: write  # 可选，如果需要发布包
-  actions: read    # 读取 Actions 权限
+  contents: write
 
 jobs:
   build:
@@ -22,7 +20,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.10' 
         cache: 'pip'
         
     - name: Set up Node.js
@@ -42,16 +40,17 @@ jobs:
           .venv
           ~/.cache/uv
           %LOCALAPPDATA%\uv\cache
-        key: ${{ runner.os }}-uv-python${{ matrix.python-version || '3.11' }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+        key: ${{ runner.os }}-uv-python${{ matrix.python-version || '3.10' }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
         restore-keys: |
-          ${{ runner.os }}-uv-python${{ matrix.python-version || '3.11' }}-
+          ${{ runner.os }}-uv-python${{ matrix.python-version || '3.10' }}-
           ${{ runner.os }}-uv-
       
     - name: Install Python dependencies
       run: |
         uv sync
-        # 使用稳定版本的 PyInstaller
-        uv pip install pyinstaller==6.11.0
+        # Nuitka and Zstandard are now in pyproject.toml, so uv sync handles them.
+        # Ensure Nuitka is installed (just in case)
+        uv pip install nuitka zstandard
       
     - name: Cache frontend dependencies
       uses: actions/cache@v4
@@ -78,99 +77,67 @@ jobs:
         key: ${{ runner.os }}-frontend-${{ hashFiles('gui_web/src/**/*', 'gui_web/package-lock.json') }}
         restore-keys: |
           ${{ runner.os }}-frontend-
-        
-    - name: Cache PyInstaller build
-      uses: actions/cache@v4
-      with:
-        path: |
-          build
-          dist
-        key: ${{ runner.os }}-pyinstaller-${{ hashFiles('src/**/*.py', 'a8qingyu.spec', 'pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pyinstaller-
-    
-    - name: Build executable
+
+    - name: Build executable with Nuitka
       run: |
-        # 杀死可能占用文件的进程
+        # Kill any processes
         Get-Process | Where-Object {$_.ProcessName -like "*A8*" -or $_.ProcessName -like "*python*"} | Stop-Process -Force -ErrorAction SilentlyContinue
-        
-        # 等待进程完全退出
         Start-Sleep -Seconds 2
         
-        # 清理可能锁定的文件
-        if (Test-Path "dist") {
-          try {
-            Remove-Item -Recurse -Force "dist" -ErrorAction Stop
-          } catch {
-            Write-Host "Warning: Could not remove dist directory, trying to continue..."
-          }
-        }
+        # Clean previous builds
+        if (Test-Path "dist_nuitka") { Remove-Item -Recurse -Force "dist_nuitka" -ErrorAction SilentlyContinue }
         
-        # 创建图标文件 (如果不存在)
+        # Create Icon if not exists
         if (-not (Test-Path "src/assets/icon.ico")) {
-          uv run python -c "from PIL import Image; img = Image.new('RGB', (256, 256), (99, 102, 241)); img.save('src/assets/icon.ico', format='ICO'); print('Fallback icon.ico created')"
+           uv run python -c "from PIL import Image; img = Image.new('RGB', (256, 256), (99, 102, 241)); img.save('src/assets/icon.ico', format='ICO'); print('Fallback icon.ico created')"
         }
         
-        # 构建 EXE (跳过前端构建，因为已经单独构建了)
-        .\build.ps1 -SkipFrontend -Clean
+        # Run Nuitka Build Script
+        .\build_nuitka.ps1 -SkipFrontend -Clean
       shell: powershell
       
     - name: Create release package
       run: |
         $version = "${{ github.ref_name }}"
-        $releaseName = "A8Whisper-$version"  # 使用英文名称
+        $releaseName = "A8Whisper-$version"
         
-        # 创建发布目录
+        # Create release directory
         New-Item -ItemType Directory -Force -Path "release"
         
-        # 检查构建结果目录
-        Write-Host "Checking build output directory..."
-        Get-ChildItem -Path "dist" -Recurse | Select-Object FullName
-        
-        # 使用通配符复制文件，避免中文路径编码问题
-        $exeFiles = Get-ChildItem -Path "dist" -Filter "*.exe" -Recurse
-        if ($exeFiles.Count -eq 0) {
-          Write-Host "ERROR: No EXE file found in dist directory"
-          exit 1
+        # Check Output
+        $nuitkaDist = "dist_nuitka/main_webview.dist"
+        if (-not (Test-Path $nuitkaDist)) {
+             Write-Host "ERROR: Nuitka output directory not found at $nuitkaDist"
+             exit 1
         }
         
-        $exeFile = $exeFiles[0]
-        $internalDir = Join-Path $exeFile.Directory.FullName "_internal"
+        # Copy content
+        Copy-Item -Recurse -Path "$nuitkaDist/*" -Destination "release/"
         
-        Write-Host "Found EXE: $($exeFile.FullName)"
-        Write-Host "Internal dir: $internalDir"
-        
-        # 复制构建结果
-        Copy-Item -Path $exeFile.FullName -Destination "release/"
-        if (Test-Path $internalDir) {
-          Copy-Item -Recurse -Path $internalDir -Destination "release/"
-        }
-        
-        # 删除 _internal 中的 models 目录内容 (但保留目录)
-        $internalModels = "release/_internal/models"
-        if (Test-Path $internalModels) {
-          Get-ChildItem -Path $internalModels -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-          Write-Host "Cleared models content from _internal directory (keeping empty directory)"
+        # Rename EXE
+        $exePath = Join-Path "release" "main_webview.exe"
+        $newExePath = Join-Path "release" "A8Whisper.exe"
+        if (Test-Path $exePath) {
+             Rename-Item -Path $exePath -NewName "A8Whisper.exe"
         } else {
-          New-Item -ItemType Directory -Force -Path $internalModels | Out-Null
-          Write-Host "Created empty models directory in _internal"
+             Write-Host "ERROR: main_webview.exe not found in release folder"
+             exit 1
         }
         
-        # 重命名 EXE 文件为英文名称 (避免下载时的编码问题)
-        $releaseExe = Get-ChildItem -Path "release" -Filter "*.exe"
-        if ($releaseExe) {
-          Rename-Item -Path $releaseExe.FullName -NewName "A8Whisper.exe"
-          Write-Host "Renamed EXE to A8Whisper.exe"
+        # Create empty models folder
+        $modelsDir = Join-Path "release" "models"
+        if (-not (Test-Path $modelsDir)) {
+             New-Item -ItemType Directory -Force -Path $modelsDir | Out-Null
         }
         
-        # 创建使用说明文件 (使用英文内容避免编码问题)
+        # Create User Guide
         $readmeContent = "# A8 Whisper $version - User Guide`n`n## Quick Start`n1. Double-click A8Whisper.exe to launch`n2. First run will download AI models (about 3GB)`n3. Use Ctrl + Win hotkey to start voice input`n`n## System Requirements`n- Windows 10/11 (64-bit)`n- NVIDIA GPU (GTX 1060 or higher)`n- 8GB RAM (16GB+ recommended)`n- Stable internet connection (for model download)`n`n## Project Homepage`nhttps://github.com/007slm/a8-whisper`n`n## Bug Reports`nhttps://github.com/007slm/a8-whisper/issues`n`n---`nA8 Whisper - Open source AI voice assistant, free alternative to Wispr Flow"
         [System.IO.File]::WriteAllText("release/README.txt", $readmeContent, [System.Text.Encoding]::UTF8)
         
-        # 压缩发布包 (使用英文文件名)
+        # Zip
         Compress-Archive -Path "release/*" -DestinationPath "$releaseName.zip"
         
-        # 输出文件信息
+        # Log size
         Get-Item "$releaseName.zip" | Select-Object Name, @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB,2)}}
       shell: powershell
       
@@ -187,7 +154,9 @@ jobs:
         files: A8Whisper-${{ github.ref_name }}.zip
         name: A8 Whisper ${{ github.ref_name }}
         body: |
-          ## 🎉 A8 Whisper ${{ github.ref_name }}
+          ## 🎉 A8 Whisper ${{ github.ref_name }} (Nuitka Build)
+          
+          **This release is built with Nuitka for improved stability and performance.**
           
           ### 📥 Download Instructions
           1. Download `A8Whisper-${{ github.ref_name }}.zip`

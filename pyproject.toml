@@ -1,6 +1,6 @@
 [project]
 name = "a8wisper"
-version = "1.0.6"
+version = "1.0.7"
 description = "A8Wisper - Windows AI Voice Assistant (Hybrid UI)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,6 +21,8 @@ dependencies = [
     "websocket-client>=1.6.0",
     "PySide6>=6.5.0",  # Qt6 for improved WebView window
     "websockets>=12.0", # Async WebSocket server
+    "nuitka>=2.0",
+    "zstandard>=0.22.0",
 ]
 
 [project.optional-dependencies]
