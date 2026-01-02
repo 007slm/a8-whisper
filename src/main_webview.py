@@ -1,10 +1,13 @@
-
 # -*- coding: utf-8 -*-
 import webview
 import threading
 import sys
 import os
+# Fix: Allow multiple OpenMP libraries (torch + ctranslate2 conflict)
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 
+# Fix: Import numpy early to prevent "cannot load module more than once" error in frozen app
 # Set console encoding for Windows
 if sys.platform == "win32":
     import codecs
