@@ -158,6 +158,12 @@ async def handler(websocket):
 def start_server(host="127.0.0.1", port=9000):
     load_config()
     print(f"Starting WebSocket server on ws://{host}:{port}")
+    # Enable websockets debug logging
+    import logging
+    logger = logging.getLogger('websockets')
+    logger.setLevel(logging.INFO)
+    logger.addHandler(logging.StreamHandler())
+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     start_server = websockets.serve(handler, host, port)

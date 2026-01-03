@@ -54,6 +54,7 @@ if getattr(sys, 'frozen', False):
         sys.stderr = LogWriter(sys.stderr, log_file)
         print(f"[INFO] Logging to {log_path}")
     except Exception as e:
+        print(f"[ERROR] Failed to setup logging: {e}")
         pass # Fallback to no logging
 
 
