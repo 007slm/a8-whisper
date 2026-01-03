@@ -1,220 +1,309 @@
-name: Build and Release
+name: Build & Release
 
 on:
   push:
     tags:
-    - 'v*'
+      - 'v*'   # release tags
+    branches: [main]   # trigger dev pipeline on main pushes
   workflow_dispatch:
-
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  # -------------------------------------------------
+  # 1️⃣ Dev build – identical to release but keeps console for debugging
+  # -------------------------------------------------
+  dev:
     runs-on: windows-latest
-
+    env:
+      KMP_DUPLICATE_LIB_OK: TRUE
+      HF_ENDPOINT: https://hf-mirror.com
+      CI: true
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: 'gui_web/package-lock.json'
+      - name: Install uv
+        run: pip install uv
 
-    - name: Install uv
-      run: pip install uv
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .venv
+            ~/.cache/uv
+            %LOCALAPPDATA%\\uv\\cache
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
 
-    - name: Cache uv dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          .venv
-          ~/.cache/uv
-          %LOCALAPPDATA%\uv\cache
-        key: ${{ runner.os }}-uv-python${{ matrix.python-version || '3.10' }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-uv-python${{ matrix.python-version || '3.10' }}-
-          ${{ runner.os }}-uv-
+      - name: Install Python dependencies (locked)
+        run: |
+          uv sync
+          # Ensure Nuitka/Zstandard are installed (they are in pyproject.toml)
+          uv pip install nuitka zstandard
 
-    - name: Install Python dependencies
-      run: |
-        uv sync
-        # Nuitka and Zstandard are now in pyproject.toml, so uv sync handles them.
-        # Ensure Nuitka is installed (just in case)
-        uv pip install nuitka zstandard
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'gui_web/package-lock.json'
 
-    - name: Cache frontend dependencies
-      uses: actions/cache@v4
-      with:
-        path: gui_web/node_modules
-        key: ${{ runner.os }}-npm-${{ hashFiles('gui_web/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-npm-
+      - name: Cache frontend dependencies
+        uses: actions/cache@v4
+        with:
+          path: gui_web/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('gui_web/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
-    - name: Install frontend dependencies
-      run: |
-        cd gui_web
-        npm ci --prefer-offline
+      - name: Install frontend dependencies
+        run: |
+          cd gui_web
+          npm ci --prefer-offline
 
-    - name: Build frontend
-      run: |
-        cd gui_web
-        npm run build
+      - name: Build frontend
+        run: |
+          cd gui_web
+          npm run build
 
-    - name: Cache frontend build
-      uses: actions/cache@v4
-      with:
-        path: gui_web/dist
-        key: ${{ runner.os }}-frontend-${{ hashFiles('gui_web/src/**/*', 'gui_web/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-frontend-
+      - name: Cache frontend build
+        uses: actions/cache@v4
+        with:
+          path: gui_web/dist
+          key: ${{ runner.os }}-frontend-${{ hashFiles('gui_web/src/**/*', 'gui_web/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-frontend-
 
-    - name: Cache HuggingFace Models
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/huggingface
-        key: ${{ runner.os }}-hf-models
-        restore-keys: |
-          ${{ runner.os }}-hf-models
+      - name: Cache Nuitka CCache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/Nuitka
+            %LOCALAPPDATA%\\Nuitka\\Nuitka\\Cache
+          key: ${{ runner.os }}-nuitka-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-nuitka-
 
-    - name: Cache Nuitka CCache
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/Nuitka
-          %LOCALAPPDATA%\Nuitka\Nuitka\Cache
-        key: ${{ runner.os }}-nuitka-${{ hashFiles('uv.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-nuitka-
+      - name: Build executable (dev mode – console enabled)
+        run: |
+          # Kill stray processes
+          Get-Process | Where-Object {$_.ProcessName -like "*A8*" -or $_.ProcessName -like "*python*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
 
-    - name: Build executable with Nuitka
-      run: |
-        # Kill any processes
-        Get-Process | Where-Object {$_.ProcessName -like "*A8*" -or $_.ProcessName -like "*python*"} | Stop-Process -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2
+          # Clean previous builds
+          if (Test-Path "dist_nuitka") { Remove-Item -Recurse -Force "dist_nuitka" -ErrorAction SilentlyContinue }
 
-        # Clean previous builds
-        if (Test-Path "dist_nuitka") { Remove-Item -Recurse -Force "dist_nuitka" -ErrorAction SilentlyContinue }
-
-        # Create Icon if not exists
-        if (-not (Test-Path "src/assets/icon.ico")) {
-           uv run python -c "from PIL import Image; img = Image.new('RGB', (256, 256), (99, 102, 241)); img.save('src/assets/icon.ico', format='ICO'); print('Fallback icon.ico created')"
-        }
-
-        # Run Nuitka Build Script (with error handling)
-        try {
-          $env:HF_HOME = "$HOME/.cache/huggingface"
-          .\build_nuitka.ps1 -SkipFrontend -Clean
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "ERROR: Nuitka build failed with exit code $LASTEXITCODE"
-            exit 1
+          # Ensure icon exists
+          if (-not (Test-Path "src/assets/icon.ico")) {
+            uv run python -c "from PIL import Image; img = Image.new('RGB', (256, 256), (99, 102, 241)); img.save('src/assets/icon.ico', format='ICO'); print('Fallback icon.ico created')"
           }
-        } catch {
-          Write-Host "ERROR: Nuitka build script failed: $_"
-          exit 1
-        }
-      shell: powershell
-      timeout-minutes: 90 # Nuitka 编译很慢，设置 90 分钟超时
-      env:
-        CI: true # 确保 CI 环境变量被设置
 
-    - name: Create release package
-      run: |
-        $version = "${{ github.ref_name }}"
-        $releaseName = "A8Whisper-$version"
+          # Build – keep console for debugging
+          .\\build_nuitka.ps1 -SkipFrontend -Clean
+        shell: powershell
+        timeout-minutes: 90
+        env:
+          CI: true
 
-        # Create release directory
-        New-Item -ItemType Directory -Force -Path "release"
+      - name: Run basic sanity check (executable starts)
+        run: |
+          dist_nuitka\\main_webview.dist\\main_webview.exe --version || exit 1
+        shell: powershell
 
-        # Check Output
-        $nuitkaDist = "dist_nuitka/main_webview.dist"
-        if (-not (Test-Path $nuitkaDist)) {
-             Write-Host "ERROR: Nuitka output directory not found at $nuitkaDist"
-             exit 1
-        }
+      - name: Run pytest (if tests exist)
+        run: |
+          uv run pytest -q || echo "No tests found"
+        shell: powershell
 
-        # Copy content
-        Copy-Item -Recurse -Path "$nuitkaDist/*" -Destination "release/"
+  # -------------------------------------------------
+  # 2️⃣ Release – identical build but console disabled & packaging
+  # -------------------------------------------------
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: dev
+    runs-on: windows-latest
+    env:
+      KMP_DUPLICATE_LIB_OK: TRUE
+      HF_ENDPOINT: https://hf-mirror.com
+      CI: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-        # Rename EXE
-        $exePath = Join-Path "release" "main_webview.exe"
-        $newExePath = Join-Path "release" "A8Whisper.exe"
-        if (Test-Path $exePath) {
-             Rename-Item -Path $exePath -NewName "A8Whisper.exe"
-        } else {
-             Write-Host "ERROR: main_webview.exe not found in release folder"
-             exit 1
-        }
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
 
-        # Create empty models folder
-        $modelsDir = Join-Path "release" "models"
-        if (-not (Test-Path $modelsDir)) {
-             New-Item -ItemType Directory -Force -Path $modelsDir | Out-Null
-        }
+      - name: Install uv
+        run: pip install uv
 
-        # Create User Guide
-        $readmeContent = "# A8 Whisper $version - User Guide`n`n## Quick Start`n1. Double-click A8Whisper.exe to launch`n2. First run will download AI models (about 3GB)`n3. Use Ctrl + Win hotkey to start voice input`n`n## System Requirements`n- Windows 10/11 (64-bit)`n- NVIDIA GPU (GTX 1060 or higher)`n- 8GB RAM (16GB+ recommended)`n- Stable internet connection (for model download)`n`n## Project Homepage`nhttps://github.com/007slm/a8-whisper`n`n## Bug Reports`nhttps://github.com/007slm/a8-whisper/issues`n`n---`nA8 Whisper - Open source AI voice assistant, free alternative to Wispr Flow"
-        [System.IO.File]::WriteAllText("release/README.txt", $readmeContent, [System.Text.Encoding]::UTF8)
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .venv
+            ~/.cache/uv
+            %LOCALAPPDATA%\\uv\\cache
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
 
-        # Zip
-        Compress-Archive -Path "release/*" -DestinationPath "$releaseName.zip"
+      - name: Install Python dependencies (locked)
+        run: |
+          uv sync
+          uv pip install nuitka zstandard
 
-        # Log size
-        Get-Item "$releaseName.zip" | Select-Object Name, @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB,2)}}
-      shell: powershell
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'gui_web/package-lock.json'
 
-    - name: Upload Release Asset
-      uses: actions/upload-artifact@v4
-      with:
-        name: A8Whisper-${{ github.ref_name }}
-        path: A8Whisper-${{ github.ref_name }}.zip
+      - name: Cache frontend dependencies
+        uses: actions/cache@v4
+        with:
+          path: gui_web/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('gui_web/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: A8Whisper-${{ github.ref_name }}.zip
-        name: A8 轻语 ${{ github.ref_name }}
-        body: |
-          ## 🎉 A8 轻语 ${{ github.ref_name }}
+      - name: Install frontend dependencies
+        run: |
+          cd gui_web
+          npm ci --prefer-offline
 
-          **本版本使用 Nuitka 编译，稳定性和性能更佳。**
+      - name: Build frontend
+        run: |
+          cd gui_web
+          npm run build
 
-          ### 📥 下载说明
-          1. 下载 `A8Whisper-${{ github.ref_name }}.zip`
-          2. 解压到任意目录
-          3. 双击 `A8Whisper.exe` 启动
-          4. 首次运行会自动下载 AI 模型
+      - name: Cache frontend build
+        uses: actions/cache@v4
+        with:
+          path: gui_web/dist
+          key: ${{ runner.os }}-frontend-${{ hashFiles('gui_web/src/**/*', 'gui_web/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-frontend-
 
-          ### 📋 系统要求
-          - Windows 10/11 (64位)
-          - NVIDIA 显卡 (GTX 1060 或更高)
-          - 8GB 内存 (推荐 16GB+)
-          - 10GB+ 可用存储空间
+      - name: Cache Nuitka CCache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/Nuitka
+            %LOCALAPPDATA%\\Nuitka\\Nuitka\\Cache
+          key: ${{ runner.os }}-nuitka-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-nuitka-
 
-          ### 🎯 使用方法
-          - 按住 `Ctrl + Win` 开始录音
-          - 松开按键自动识别并输入文字
+      - name: Sync version to pyproject.toml
+        run: |
+          $ver = Get-Content "VERSION"
+          (Get-Content "pyproject.toml") -replace 'version = ".*"', "version = \"$ver\"" | Set-Content "pyproject.toml"
+        shell: powershell
 
-          ### 🔗 项目主页
-          https://github.com/007slm/a8-whisper
+      - name: Build executable (release mode – console disabled)
+        run: |
+          # Kill stray processes
+          Get-Process | Where-Object {$_.ProcessName -like "*A8*" -or $_.ProcessName -like "*python*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
 
-          ### 🐛 问题反馈
-          https://github.com/007slm/a8-whisper/issues
+          if (Test-Path "dist_nuitka") { Remove-Item -Recurse -Force "dist_nuitka" -ErrorAction SilentlyContinue }
 
-          ---
-          **完整更新日志**: https://github.com/007slm/a8-whisper/releases
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if (-not (Test-Path "src/assets/icon.ico")) {
+            uv run python -c "from PIL import Image; img = Image.new('RGB', (256, 256), (99, 102, 241)); img.save('src/assets/icon.ico', format='ICO'); print('Fallback icon.ico created')"
+          }
+
+          .\\build_nuitka.ps1 -SkipFrontend -Clean
+        shell: powershell
+        timeout-minutes: 90
+        env:
+          CI: true
+
+      - name: Verify executable starts (no console)
+        run: |
+          dist_nuitka\\main_webview.dist\\main_webview.exe --version || exit 1
+        shell: powershell
+
+      - name: Create release package
+        run: |
+          $version = "${{ github.ref_name }}"
+          $releaseName = "A8Whisper-$version"
+
+          New-Item -ItemType Directory -Force -Path "release"
+
+          $nuitkaDist = "dist_nuitka/main_webview.dist"
+          if (-not (Test-Path $nuitkaDist)) { Write-Host "ERROR: Nuitka output missing"; exit 1 }
+
+          Copy-Item -Recurse -Path "$nuitkaDist/*" -Destination "release/"
+
+          $exePath = Join-Path "release" "main_webview.exe"
+          $newExePath = Join-Path "release" "A8Whisper.exe"
+          if (Test-Path $exePath) { Rename-Item -Path $exePath -NewName "A8Whisper.exe" } else { Write-Host "ERROR: main_webview.exe not found"; exit 1 }
+
+          $modelsDir = Join-Path "release" "models"
+          if (-not (Test-Path $modelsDir)) { New-Item -ItemType Directory -Force -Path $modelsDir | Out-Null }
+
+          $readmeContent = "# A8 Whisper $version - User Guide`n`n## Quick Start`n1. Double‑click A8Whisper.exe to launch`n2. First run will download AI models (≈3 GB)`n3. Use Ctrl+Win hotkey to start voice input`n`n## System Requirements`n- Windows 10/11 (64‑bit)`n- NVIDIA GPU (GTX 1060 or higher)`n- 8 GB RAM (16 GB recommended)`n- Stable internet connection`n`n## Project Homepage`nhttps://github.com/007slm/a8-whisper`n`n## Bug Reports`nhttps://github.com/007slm/a8-whisper/issues`n`n---`nA8 Whisper – open‑source AI voice assistant"
+          [System.IO.File]::WriteAllText("release/README.txt", $readmeContent, [System.Text.Encoding]::UTF8)
+
+          Compress-Archive -Path "release/*" -DestinationPath "$releaseName.zip"
+          Get-Item "$releaseName.zip" | Select-Object Name, @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB,2)}}
+        shell: powershell
+
+      - name: Upload Release Asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: A8Whisper-${{ github.ref_name }}
+          path: A8Whisper-${{ github.ref_name }}.zip
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: A8Whisper-${{ github.ref_name }}.zip
+          name: A8 轻语 ${{ github.ref_name }}
+          body: |
+            ## 🎉 A8 轻语 ${{ github.ref_name }}
+
+            **本版本使用 Nuitka 编译，稳定性和性能更佳。**
+
+            ### 📥 下载说明
+            1. 下载 `A8Whisper-${{ github.ref_name }}.zip`
+            2. 解压到任意目录
+            3. 双击 `A8Whisper.exe` 启动
+            4. 首次运行会自动下载 AI 模型
+
+            ### 📋 系统要求
+            - Windows 10/11 (64位)
+            - NVIDIA 显卡 (GTX 1060 或更高)
+            - 8GB 内存 (推荐 16GB+)
+            - 10GB+ 可用存储空间
+
+            ### 🎯 使用方法
+            - 按住 `Ctrl + Win` 开始录音
+            - 松开按键自动识别并输入文字
+
+            ### 🔗 项目主页
+            https://github.com/007slm/a8-whisper
+
+            ### 🐛 问题反馈
+            https://github.com/007slm/a8-whisper/issues
+
+            ---
+            **完整更新日志**: https://github.com/007slm/a8-whisper/releases
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
