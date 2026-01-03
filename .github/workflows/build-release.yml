@@ -79,6 +79,14 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-frontend-
 
+    - name: Cache HuggingFace Models
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/huggingface
+        key: ${{ runner.os }}-hf-models
+        restore-keys: |
+          ${{ runner.os }}-hf-models
+
     - name: Cache Nuitka CCache
       uses: actions/cache@v4
       with:
@@ -105,6 +113,7 @@ jobs:
 
         # Run Nuitka Build Script (with error handling)
         try {
+          $env:HF_HOME = "$HOME/.cache/huggingface"
           .\build_nuitka.ps1 -SkipFrontend -Clean
           if ($LASTEXITCODE -ne 0) {
             Write-Host "ERROR: Nuitka build failed with exit code $LASTEXITCODE"
