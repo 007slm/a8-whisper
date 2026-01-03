@@ -42,6 +42,10 @@ if ($Clean) {
 }
 
 # Basic Nuitka Arguments
+# 检测是否在 CI 环境中运行
+$isCI = $env:CI -eq "true" -or $env:GITHUB_ACTIONS -eq "true"
+$jobCount = if ($isCI) { 2 } else { 16 }  # CI 环境用 2 核，本地用 16 核
+
 $nuitkaArgs = @(
     "--standalone",
     "--enable-plugin=pyside6",
@@ -53,9 +57,12 @@ $nuitkaArgs = @(
     # Crucial for AI Libraries: Force include all data/dlls in these packages
     "--include-package-data=faster_whisper",
     "--include-package-data=ctranslate2",
+    "--include-package-data=onnxruntime",
+    "--include-package-data=huggingface_hub",
     # Fix for jaraco/setuptools hidden dependencies if needed
-    "--include-package-data=jaraco", 
-    "--jobs=16",
+    "--include-package-data=jaraco",
+    "--include-package-data=certifi",
+    "--jobs=$jobCount",
     "--assume-yes-for-downloads", # 自动下载依赖
     # 排除不需要的测试模块，加快编译
     "--nofollow-import-to=numpy.testing",
@@ -75,9 +82,9 @@ else {
     Write-Host "Mode: Standalone (Directory)" -ForegroundColor Magenta
 }
 
-# Disable console for release, enable for debugging if needed
-# $nuitkaArgs += "--windows-console-mode=disable" 
-$nuitkaArgs += "--windows-console-mode=force" # Keep console for now to see logs!
+# 保留控制台用于调试，等稳定后再禁用
+$nuitkaArgs += "--windows-console-mode=force"
+Write-Host "Console: Enabled (Debug Mode)" -ForegroundColor Gray
 
 $mainScript = "src/main_webview.py"
 

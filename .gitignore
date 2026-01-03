@@ -21,6 +21,7 @@ dist/
 gui_web/dist/
 release/
 release_temp/
+dist_nuitka/
 *.zip
 
 # Release packages

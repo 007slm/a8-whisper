@@ -92,9 +92,21 @@ jobs:
            uv run python -c "from PIL import Image; img = Image.new('RGB', (256, 256), (99, 102, 241)); img.save('src/assets/icon.ico', format='ICO'); print('Fallback icon.ico created')"
         }
         
-        # Run Nuitka Build Script
-        .\build_nuitka.ps1 -SkipFrontend -Clean
+        # Run Nuitka Build Script (with error handling)
+        try {
+          .\build_nuitka.ps1 -SkipFrontend -Clean
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "ERROR: Nuitka build failed with exit code $LASTEXITCODE"
+            exit 1
+          }
+        } catch {
+          Write-Host "ERROR: Nuitka build script failed: $_"
+          exit 1
+        }
       shell: powershell
+      timeout-minutes: 90  # Nuitka 编译很慢，设置 90 分钟超时
+      env:
+        CI: true  # 确保 CI 环境变量被设置
       
     - name: Create release package
       run: |
@@ -152,29 +164,36 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: A8Whisper-${{ github.ref_name }}.zip
-        name: A8 Whisper ${{ github.ref_name }}
+        name: A8 轻语 ${{ github.ref_name }}
         body: |
-          ## 🎉 A8 Whisper ${{ github.ref_name }} (Nuitka Build)
+          ## 🎉 A8 轻语 ${{ github.ref_name }}
           
-          **This release is built with Nuitka for improved stability and performance.**
+          **本版本使用 Nuitka 编译，稳定性和性能更佳。**
           
-          ### 📥 Download Instructions
-          1. Download `A8Whisper-${{ github.ref_name }}.zip`
-          2. Extract to any directory
-          3. Double-click `A8Whisper.exe` to launch
-          4. First run will automatically download AI models
+          ### 📥 下载说明
+          1. 下载 `A8Whisper-${{ github.ref_name }}.zip`
+          2. 解压到任意目录
+          3. 双击 `A8Whisper.exe` 启动
+          4. 首次运行会自动下载 AI 模型
           
-          ### 📋 System Requirements
-          - Windows 10/11 (64-bit)
-          - NVIDIA GPU (GTX 1060 or higher)
-          - 8GB RAM (16GB+ recommended)
-          - 10GB+ available storage space
+          ### 📋 系统要求
+          - Windows 10/11 (64位)
+          - NVIDIA 显卡 (GTX 1060 或更高)
+          - 8GB 内存 (推荐 16GB+)
+          - 10GB+ 可用存储空间
           
-          ### 🔗 Project Homepage
+          ### 🎯 使用方法
+          - 按住 `Ctrl + Win` 开始录音
+          - 松开按键自动识别并输入文字
+          
+          ### 🔗 项目主页
           https://github.com/007slm/a8-whisper
           
+          ### 🐛 问题反馈
+          https://github.com/007slm/a8-whisper/issues
+          
           ---
-          **Full Changelog**: https://github.com/007slm/a8-whisper/releases
+          **完整更新日志**: https://github.com/007slm/a8-whisper/releases
         draft: false
         prerelease: false
       env:

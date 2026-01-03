@@ -43,12 +43,19 @@ class ASREngine:
         
         is_local = False
         if os.path.exists(os.path.join(local_path, "config.json")):
-            print(f"[OK] Found local model at: {local_path}")
-            load_target = local_path
-            is_local = True
+            # Validate config file size (avoid corrupt/empty files)
+            config_size = os.path.getsize(os.path.join(local_path, "config.json"))
+            if config_size < 100: # Config should be larger than 100 bytes
+                print(f"[WARN] Local model config looks invalid (size: {config_size} bytes). Ignoring.")
+            else:
+                print(f"[OK] Found local model at: {local_path}")
+                load_target = local_path
+                is_local = True
         else:
             print(f"[WARN] Local model NOT found at {local_path}")
-            print(f"[INFO] Will download from Hugging Face cache")
+            print(f"[INFO] Will download from Hugging Face cache (Mirror)")
+            # Ensure mirror is set
+            os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
         try:
             self.model = WhisperModel(

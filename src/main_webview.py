@@ -6,6 +6,8 @@ import os
 # Fix: Allow multiple OpenMP libraries (torch + ctranslate2 conflict)
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+# Fix: Use HF Mirror for China
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
 # Fix: Import numpy early to prevent "cannot load module more than once" error in frozen app
 # Set console encoding for Windows
